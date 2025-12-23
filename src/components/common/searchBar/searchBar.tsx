@@ -1,13 +1,16 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaClock, FaTimes } from "react-icons/fa";
 import { TypingAnimation } from "@/components/ui/typing-animation";
 import { getAllProduct } from "@/services/operations/product";
 import { useDispatch } from "react-redux";
 import { ProductFormValues } from "@/@types/product";
 import { valideURLConvert } from "@/utils/valideURLConvert";
 import Link from "next/link";
+
+const RECENT_SEARCHES_KEY = "recent_searches";
+const MAX_RECENT_SEARCHES = 5;
 
 const SearchBar = () => {
   const dispatch = useDispatch();
@@ -16,6 +19,47 @@ const SearchBar = () => {
     []
   );
   const [isFocused, setIsFocused] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [showRecentSearches, setShowRecentSearches] = useState(false);
+
+  // Load recent searches from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(RECENT_SEARCHES_KEY);
+      if (stored) {
+        try {
+          setRecentSearches(JSON.parse(stored));
+        } catch (error) {
+          console.error("Failed to parse recent searches:", error);
+        }
+      }
+    }
+  }, []);
+
+  // Save search to recent searches
+  const addToRecentSearches = (searchTerm: string) => {
+    if (!searchTerm.trim()) return;
+
+    const updated = [
+      searchTerm.trim(),
+      ...recentSearches.filter((s) => s.toLowerCase() !== searchTerm.trim().toLowerCase()),
+    ].slice(0, MAX_RECENT_SEARCHES);
+
+    setRecentSearches(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+    }
+  };
+
+  // Remove from recent searches
+  const removeRecentSearch = (searchTerm: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = recentSearches.filter((s) => s !== searchTerm);
+    setRecentSearches(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+    }
+  };
 
   // Backend search (debounced)
   useEffect(() => {
@@ -63,23 +107,77 @@ const SearchBar = () => {
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onFocus={() => {
+            setIsFocused(true);
+            setShowRecentSearches(true);
+          }}
+          onBlur={() => {
+            // Delay to allow click events on recent searches
+            setTimeout(() => {
+              setIsFocused(false);
+              setShowRecentSearches(false);
+            }, 200);
+          }}
           className="flex-1 bg-transparent outline-none font-medium text-gray-800 text-base px-2 placeholder-transparent"
         />
-        <button className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#3a0103] text-white hover:bg-[#9c6567] transition-all duration-300">
-          <FaSearch
-            className="text-base sm:text-lg cursor-pointer"
-            onClick={async () => {
+        <button
+          className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#3a0103] text-white hover:bg-[#9c6567] transition-all duration-300"
+          onClick={async () => {
+            if (inputValue.trim()) {
+              addToRecentSearches(inputValue);
               const searchedProducts = await getAllProduct(
                 dispatch,
                 inputValue
               );
-              setFilteredProducts(searchedProducts); // update UI
-            }}
-          />
+              setFilteredProducts(searchedProducts);
+            }
+          }}
+        >
+          <FaSearch className="text-base sm:text-lg cursor-pointer" />
         </button>
       </div>
+
+      {/* Recent Searches - Show when focused and input is empty */}
+      {showRecentSearches && !inputValue && recentSearches.length > 0 && (
+        <div 
+          className="absolute z-50 w-full max-w-11/12 left-4 md:left-6 mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-96 overflow-y-auto"
+          onMouseDown={(e) => e.preventDefault()} // Prevent blur when clicking dropdown
+        >
+          <div className="px-4 py-2 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+              <FaClock className="text-gray-400" />
+              Recent Searches
+            </h3>
+          </div>
+          {recentSearches.map((search, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer transition-all group"
+              onClick={async () => {
+                setInputValue(search);
+                setIsFocused(true);
+                setShowRecentSearches(false);
+                // Trigger search automatically
+                const results = await getAllProduct(dispatch, search);
+                setFilteredProducts(results || []);
+              }}
+            >
+              <div className="flex items-center gap-3 flex-1">
+                <FaClock className="text-gray-400 text-sm" />
+                <span className="text-gray-800 text-sm sm:text-base">
+                  {search}
+                </span>
+              </div>
+              <button
+                onClick={(e) => removeRecentSearch(search, e)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded"
+              >
+                <FaTimes className="text-gray-400 text-xs" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Result Dropdown */}
       {filteredProducts.length > 0 && (

@@ -17,6 +17,12 @@ const nextConfig = {
         port: "",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+        port: "",
+        pathname: "/**",
+      },
     ],
     // ❌ REMOVED: The 'domains' property is deprecated and caused the warning.
     // domains: ["alpha-arts.s3.eu-north-1.amazonaws.com"],

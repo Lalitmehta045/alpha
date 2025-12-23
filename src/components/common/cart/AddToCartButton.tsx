@@ -20,6 +20,8 @@ import {
 } from "@/services/operations/cartItem";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { setToken, setUser } from "@/redux/slices/authSlice";
 
 interface Props {
   data: Product;
@@ -30,7 +32,12 @@ interface Props {
 const AddToCartButton: React.FC<Props> = ({ data, className, icon }) => {
   const dispatch = useDispatch();
   const router = useRouter();
-  const token = useSelector((state: RootState) => state.auth.token);
+  const { data: session } = useSession();
+  const reduxToken = useSelector((state: RootState) => state.auth.token);
+  
+  // Use NextAuth session OR Redux token
+  const token = reduxToken || (session?.user ? "google-auth-session" : null);
+  const isLoggedIn = !!token || !!session?.user;
 
   const cartItems = useSelector((state: RootState) => state.cart.items);
 
@@ -52,16 +59,65 @@ const AddToCartButton: React.FC<Props> = ({ data, className, icon }) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!token) {
+    if (!isLoggedIn) {
       toast.error("Please Login First");
       router.push("/auth/sign-in");
       return; // 🔥 VERY IMPORTANT
     }
 
+    // If Google login (NextAuth session) but no Redux token, generate JWT token
+    if (session?.user && !reduxToken) {
+      try {
+        setLoading(true);
+        const res = await fetch("/api/auth/google-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data) {
+            // Store tokens in Redux and localStorage
+            dispatch(setToken(data.data.accessToken));
+            dispatch(setUser(data.data.user));
+            localStorage.setItem("accessToken", data.data.accessToken);
+            localStorage.setItem("refreshToken", data.data.refreshToken);
+            localStorage.setItem("user", JSON.stringify(data.data.user));
+            // Continue with add to cart
+          } else {
+            toast.error("Failed to generate token");
+            return;
+          }
+        } else {
+          toast.error("Please Login First");
+          router.push("/auth/sign-in");
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to generate token:", error);
+        toast.error("Failed to generate token");
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (!reduxToken && !session?.user) {
+      toast.error("Please Login First");
+      router.push("/auth/sign-in");
+      return;
+    }
+
+    // Use Redux token if available, otherwise skip (shouldn't happen)
+    const finalToken = reduxToken;
+    if (!finalToken) {
+      toast.error("Please Login First");
+      return;
+    }
+
     try {
       setLoading(true);
       const productId = data._id;
-      const response = await addCartItem(productId, router, token);
+      const response = await addCartItem(productId, router, finalToken);
       if (!response) {
         toast.error("Something went wrong!");
         return;
@@ -89,8 +145,35 @@ const AddToCartButton: React.FC<Props> = ({ data, className, icon }) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!token) {
+    if (!isLoggedIn) {
       toast.error("Please Login First");
+      return;
+    }
+
+    // Ensure token exists for Google users
+    let finalToken = reduxToken;
+    if (session?.user && !reduxToken) {
+      try {
+        const res = await fetch("/api/auth/google-token", {
+          method: "POST",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            dispatch(setToken(data.data.accessToken));
+            dispatch(setUser(data.data.user));
+            localStorage.setItem("accessToken", data.data.accessToken);
+            finalToken = data.data.accessToken;
+          }
+        }
+      } catch (error) {
+        console.error("Token generation failed:", error);
+      }
+    }
+
+    if (!finalToken) {
+      toast.error("Please Login First");
+      return;
     }
 
     if (!data._id) return;
@@ -100,7 +183,7 @@ const AddToCartButton: React.FC<Props> = ({ data, className, icon }) => {
     const response = await updateCartItem(
       cartId as string,
       newQty,
-      token as string
+      finalToken
     );
 
     const updatePayload = {
@@ -117,7 +200,33 @@ const AddToCartButton: React.FC<Props> = ({ data, className, icon }) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!token) {
+    if (!isLoggedIn) {
+      toast.error("Please Login First");
+      return;
+    }
+
+    // Ensure token exists for Google users
+    let finalToken = reduxToken;
+    if (session?.user && !reduxToken) {
+      try {
+        const res = await fetch("/api/auth/google-token", {
+          method: "POST",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            dispatch(setToken(data.data.accessToken));
+            dispatch(setUser(data.data.user));
+            localStorage.setItem("accessToken", data.data.accessToken);
+            finalToken = data.data.accessToken;
+          }
+        }
+      } catch (error) {
+        console.error("Token generation failed:", error);
+      }
+    }
+
+    if (!finalToken) {
       toast.error("Please Login First");
       return;
     }
@@ -133,7 +242,7 @@ const AddToCartButton: React.FC<Props> = ({ data, className, icon }) => {
       try {
         const delresponse = await deleteCartItem(
           cartId as string,
-          token as string
+          finalToken
         );
 
         dispatch(removeFromCart(cartId));
@@ -144,7 +253,7 @@ const AddToCartButton: React.FC<Props> = ({ data, className, icon }) => {
       const response = await updateCartItem(
         cartId as string,
         newQty,
-        token as string
+        finalToken
       );
 
       const updatePayload = {
