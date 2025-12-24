@@ -8,6 +8,8 @@ import { IUserProfile } from "@/@types/user";
 import crypto from "crypto";
 
 export const authOptions: NextAuthOptions = {
+  // Rely on env secret so callbacks/redirects use the correct host in prod
+  secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" },
   providers: [
     Credentials({
@@ -72,6 +74,18 @@ export const authOptions: NextAuthOptions = {
       (user as any).role = existing.role;
 
       return true;
+    },
+
+    async redirect({ url, baseUrl }) {
+      // Ensure redirects stay on the allowed host to avoid redirect_uri_mismatch
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        const target = new URL(url);
+        if (target.origin === baseUrl) return url;
+      } catch {
+        // fall through to baseUrl
+      }
+      return baseUrl;
     },
 
     async jwt({ token, user }) {

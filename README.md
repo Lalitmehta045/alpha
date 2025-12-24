@@ -1,99 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Setup (local)
+- Install: `npm install`
+- Copy `env.example` → `.env.local` and fill values.
+- Run dev: `npm run dev` (http://localhost:3000)
+- Build test: `npm run build` then `npm start`
 
-## Getting Started
+## Environment variables
+See `env.example` for the full list. Key values:
+- `NEXTAUTH_URL`, `NEXTAUTH_SECRET`
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- `MONGO_URL`
+- `SECRET_KEY_ACCESS_TOKEN`, `SECRET_KEY_REFRESH_TOKEN`, `JWT_SECRET`
+- `NEXT_PUBLIC_BASE_ALPHA`
+- `MAIL_HOST`, `MAIL_USER`, `MAIL_PASSWORD`
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE`
+- `AWS_S3_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET`
+- `AUTH_TRUST_HOST=true` on Vercel
 
-First, run the development server:
+## Google OAuth (fix redirect_uri_mismatch)
+1) In Google Cloud Console → OAuth consent screen: add your domain to "Authorized domains".  
+2) OAuth Client → "Authorized redirect URIs":  
+   - `http://localhost:3000/api/auth/callback/google` (local)  
+   - `https://<your-vercel-domain>/api/auth/callback/google`  
+   - `https://www.alphaartandevents.com/api/auth/callback/google` (custom domain)  
+3) Add env values to Vercel: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_URL=https://<your-domain>`, `NEXTAUTH_SECRET`.  
+4) Redeploy and verify login at `/auth/sign-in` (Google button).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Vercel deployment checklist
+- Connect repo and set all envs from `.env.local` in Vercel → Project Settings → Environment Variables (include production + preview).  
+- `NEXTAUTH_URL` must match the deployed domain; keep `AUTH_TRUST_HOST=true`.  
+- Ensure MongoDB Atlas IP allow-list includes Vercel IPs or use "Allow Access from Anywhere".  
+- Build command: `npm run build`; Output: Next.js (defaults are fine).  
+- After deploy, validate Google login and protected routes.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Folder Structure
-```bash
-src/
-│
-├── app/
-│   ├── layout.tsx
-│   ├── page.tsx
-│   ├── globals.css
-│   │
-│   ├── (public)
-│   │   └── ...
-│   │
-│   ├── account/
-│   │   └── page.tsx
-│   │
-│   ├── admin/                ✅ Admin Panel UI (protected)
-│   │   ├── layout.tsx        ✅ Sidebar + Admin Shell
-│   │   ├── page.tsx          ✅ Dashboard Overview
-│   │   ├── products/
-│   │   │   ├── page.tsx      ✅ Products Listing
-│   │   │   ├── new/page.tsx  ✅ Create Product UI
-│   │   │   └── [id]/page.tsx ✅ Edit Product UI
-│   │   │
-│   │   ├── orders/
-│   │   │   └── page.tsx
-│   │   ├── users/
-│   │       └── page.tsx
-│   │
-│   ├── api/                  ✅ Backend API Endpoints
-│   │   ├── auth/
-│   │   │   └── [...nextauth]/route.ts ✅ Admin/User Auth
-│   │   │
-│   │   ├── products/
-│   │   │   ├── route.ts     ✅ POST, GET (Create + GetAll)
-│   │   │   └── [id]/route.ts✅ PUT, DELETE, GET
-│   │   │
-│   │   ├── users/
-│   │   │   └── route.ts
-│   │   ├── orders/
-│   │   │   └── route.ts
-│   │   └── payments/
-│   │       └── route.ts
-│
-├── components/               ✅ UI elements
-│
-├── lib/
-│   ├── db.ts                 ✅ Database connection
-│   ├── auth.ts               ✅ Admin auth helpers
-│   ├── utils.ts              ✅ Helpers
-│   ├── razorpay.ts           ✅ Payment setup
-│   └── models/
-│       ├── Product.ts
-│       ├── Order.ts
-│       ├── User.ts
-│       └── Category.ts
-│
-├── redux/                    ✅ If using Redux Toolkit
-│   └── store.ts
-│
-└── services/                 ✅ API service calls
-
-```
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Folder hints
+`src/app/api/auth/[...nextauth]/route.ts` → NextAuth handler  
+`src/lib/auth.ts` → provider/callback setup  
+`src/services/api_endpoints.ts` → API base URL (`NEXT_PUBLIC_BASE_ALPHA`)  
+`src/lib/db.ts` → Mongo connection  
+`src/app/api/*` → backend routes (S3, auth, cart, orders, admin, etc.)
