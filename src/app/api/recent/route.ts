@@ -15,9 +15,7 @@ const s3Client = new S3Client({
 export async function GET() {
   try {
     await connectDB();
-    const recents = await RecentModel.find({ order: { $exists: true } })
-      .sort({ order: 1 }) // ensure slot 1-4 order matches UI slots
-      .limit(4);
+    const recents = await RecentModel.find({ order: { $exists: true } }).sort({ order: 1 });
 
     // Generate presigned URLs for images
     const recentsWithUrls = await Promise.all(

@@ -18,13 +18,14 @@ interface RecentItem {
   _id?: string;
   image: string;
   title?: string;
+  order?: number;
 }
 
 const fallbackRecents: RecentItem[] = [
-  { _id: "1", title: "Top 5 Wedding Backdrop Ideas for 2025", image: recent1 as unknown as string },
-  { _id: "2", title: "Photo Booth Props That Guests Will Love", image: recent2 as unknown as string },
-  { _id: "3", title: "Lighting Tips to Transform Any Venue", image: recent3 as unknown as string },
-  { _id: "4", title: "Luxury Decor on a Budget", image: recent4 as unknown as string },
+  { _id: "1", title: "Top 5 Wedding Backdrop Ideas for 2025", image: recent1 as unknown as string, order: 1 },
+  { _id: "2", title: "Photo Booth Props That Guests Will Love", image: recent2 as unknown as string, order: 2 },
+  { _id: "3", title: "Lighting Tips to Transform Any Venue", image: recent3 as unknown as string, order: 3 },
+  { _id: "4", title: "Luxury Decor on a Budget", image: recent4 as unknown as string, order: 4 },
 ];
 
 const RecentProductV1 = () => {
@@ -35,12 +36,33 @@ const RecentProductV1 = () => {
     const fetchRecentProducts = async () => {
       try {
         const res = await axios.get("/api/recent");
-        if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
-          const sorted = [...res.data.data].sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
-          setRecentProducts(sorted.slice(0, 4));
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          // Start with fallback images
+          const mergedProducts = [...fallbackRecents];
+          
+          // Replace fallback images with API data where available
+          res.data.data.forEach((apiItem: any) => {
+            const order = apiItem.order ?? 0;
+            if (order >= 1 && order <= 4) {
+              // Replace fallback at position (order - 1) with API item
+              mergedProducts[order - 1] = {
+                _id: apiItem._id,
+                image: apiItem.image,
+                title: apiItem.title || fallbackRecents[order - 1].title,
+                order: order,
+              };
+            }
+          });
+          
+          setRecentProducts(mergedProducts);
+        } else {
+          // Use fallback if API returns empty array or no success
+          setRecentProducts(fallbackRecents);
         }
       } catch (error) {
         console.error("Failed to load recent products", error);
+        // Use fallback on error
+        setRecentProducts(fallbackRecents);
       }
     };
 

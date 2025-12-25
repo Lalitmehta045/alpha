@@ -62,10 +62,10 @@ const AddToCartButton: React.FC<Props> = ({ data, className, icon }) => {
     if (!isLoggedIn) {
       toast.error("Please Login First");
       router.push("/auth/sign-in");
-      return; // 🔥 VERY IMPORTANT
+      return;
     }
 
-    // If Google login (NextAuth session) but no Redux token, generate JWT token
+    // If Google login (NextAuth session) but no Redux token, generate JWT token first
     if (session?.user && !reduxToken) {
       try {
         setLoading(true);
@@ -73,51 +73,56 @@ const AddToCartButton: React.FC<Props> = ({ data, className, icon }) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.data) {
-            // Store tokens in Redux and localStorage
-            dispatch(setToken(data.data.accessToken));
-            dispatch(setUser(data.data.user));
-            localStorage.setItem("accessToken", data.data.accessToken);
-            localStorage.setItem("refreshToken", data.data.refreshToken);
-            localStorage.setItem("user", JSON.stringify(data.data.user));
-            // Continue with add to cart
-          } else {
-            toast.error("Failed to generate token");
-            return;
-          }
-        } else {
-          toast.error("Please Login First");
-          router.push("/auth/sign-in");
+        
+        if (!res.ok) {
+          throw new Error("Token generation failed");
+        }
+        
+        const tokenResponse = await res.json();
+        if (!tokenResponse.success || !tokenResponse.data) {
+          throw new Error("Invalid token response");
+        }
+
+        // Store tokens in Redux and localStorage
+        dispatch(setToken(tokenResponse.data.accessToken));
+        dispatch(setUser(tokenResponse.data.user));
+        localStorage.setItem("accessToken", tokenResponse.data.accessToken);
+        localStorage.setItem("refreshToken", tokenResponse.data.refreshToken);
+        localStorage.setItem("user", JSON.stringify(tokenResponse.data.user));
+
+        // Now proceed with add to cart using the new token
+        const productId = data._id;
+        const response = await addCartItem(productId, router, tokenResponse.data.accessToken);
+        
+        if (!response) {
+          toast.error("Something went wrong!");
           return;
         }
+
+        const addPayload = {
+          _id: response._id,
+          quantity: response.quantity,
+          product: response.productId,
+        };
+
+        dispatch(addToCart(addPayload));
+        toast.success("Item added to cart!");
+        
       } catch (error) {
-        console.error("Failed to generate token:", error);
-        toast.error("Failed to generate token");
-        return;
+        console.error("Token generation or add to cart error:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to add item");
       } finally {
         setLoading(false);
       }
+      return; // Exit early since we handled everything above
     }
 
-    if (!reduxToken && !session?.user) {
-      toast.error("Please Login First");
-      router.push("/auth/sign-in");
-      return;
-    }
-
-    // Use Redux token if available, otherwise skip (shouldn't happen)
-    const finalToken = reduxToken;
-    if (!finalToken) {
-      toast.error("Please Login First");
-      return;
-    }
-
+    // Regular flow for users with existing tokens
     try {
       setLoading(true);
       const productId = data._id;
-      const response = await addCartItem(productId, router, finalToken);
+      const response = await addCartItem(productId, router, reduxToken!);
+      
       if (!response) {
         toast.error("Something went wrong!");
         return;
@@ -130,7 +135,6 @@ const AddToCartButton: React.FC<Props> = ({ data, className, icon }) => {
       };
 
       dispatch(addToCart(addPayload));
-      // Success toast
       toast.success("Item added to cart!");
     } catch (error) {
       console.error("Add to cart error:", error);

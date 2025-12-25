@@ -59,13 +59,18 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
-    const { image, title, description, order } = await req.json();
+    let { image, title, description, order } = await req.json();
 
-    if (!image || !title || order === undefined) {
+    if (!image || order === undefined) {
       return NextResponse.json(
-        { error: "Image, title, and order are required" },
+        { error: "Image and order are required" },
         { status: 400 }
       );
+    }
+
+    // Set default title if empty
+    if (!title || title.trim() === "") {
+      title = "Untitled";
     }
 
     const existing = await RecentModel.findOne({ order });
@@ -85,7 +90,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Create recent error:", error);
     return NextResponse.json(
-      { error: "Failed to create recent product" },
+      { error: (error as Error).message || "Failed to create recent product" },
       { status: 500 }
     );
   }
