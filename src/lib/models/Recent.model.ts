@@ -3,7 +3,7 @@ import mongoose, { Schema } from "mongoose";
 export interface IRecent {
   _id?: string;
   image: string;
-  title: string;
+  title?: string;
   description?: string;
   order: number;
   createdAt?: Date;
@@ -18,7 +18,6 @@ const RecentSchema = new Schema<IRecent>(
     },
     title: {
       type: String,
-      required: [true, "Title is required"],
       trim: true,
     },
     description: {

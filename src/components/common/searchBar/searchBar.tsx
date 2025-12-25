@@ -118,6 +118,14 @@ const SearchBar = () => {
               setShowRecentSearches(false);
             }, 200);
           }}
+          onKeyDown={async (e) => {
+            if (e.key === "Enter" && inputValue.trim()) {
+              addToRecentSearches(inputValue);
+              const searchedProducts = await getAllProduct(dispatch, inputValue);
+              setFilteredProducts(searchedProducts || []);
+              setShowRecentSearches(false);
+            }
+          }}
           className="flex-1 bg-transparent outline-none font-medium text-gray-800 text-base px-2 placeholder-transparent"
         />
         <button
@@ -140,48 +148,52 @@ const SearchBar = () => {
       {/* Recent Searches - Show when focused and input is empty */}
       {showRecentSearches && !inputValue && recentSearches.length > 0 && (
         <div 
-          className="absolute z-50 w-full max-w-11/12 left-4 md:left-6 mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-96 overflow-y-auto"
+          className="absolute z-50 w-full top-full left-0 mt-2 bg-white border border-gray-300 rounded-xl shadow-lg max-h-96 overflow-y-auto"
           onMouseDown={(e) => e.preventDefault()} // Prevent blur when clicking dropdown
         >
-          <div className="px-4 py-2 border-b border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-              <FaClock className="text-gray-400" />
+          <div className="px-4 py-3 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <FaClock className="text-gray-500" />
               Recent Searches
             </h3>
           </div>
-          {recentSearches.map((search, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer transition-all group"
-              onClick={async () => {
-                setInputValue(search);
-                setIsFocused(true);
-                setShowRecentSearches(false);
-                // Trigger search automatically
-                const results = await getAllProduct(dispatch, search);
-                setFilteredProducts(results || []);
-              }}
-            >
-              <div className="flex items-center gap-3 flex-1">
-                <FaClock className="text-gray-400 text-sm" />
-                <span className="text-gray-800 text-sm sm:text-base">
-                  {search}
-                </span>
-              </div>
-              <button
-                onClick={(e) => removeRecentSearch(search, e)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded"
+          <div className="py-1">
+            {recentSearches.map((search, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition-all group"
+                onClick={async () => {
+                  setInputValue(search);
+                  setIsFocused(true);
+                  setShowRecentSearches(false);
+                  // Trigger search automatically
+                  const results = await getAllProduct(dispatch, search);
+                  setFilteredProducts(results || []);
+                  addToRecentSearches(search);
+                }}
               >
-                <FaTimes className="text-gray-400 text-xs" />
-              </button>
-            </div>
-          ))}
+                <div className="flex items-center gap-3 flex-1">
+                  <FaClock className="text-gray-400 text-sm" />
+                  <span className="text-gray-800 text-sm sm:text-base">
+                    {search}
+                  </span>
+                </div>
+                <button
+                  onClick={(e) => removeRecentSearch(search, e)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-gray-200 rounded-full"
+                  aria-label="Remove search"
+                >
+                  <FaTimes className="text-gray-500 text-xs" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Result Dropdown */}
       {filteredProducts.length > 0 && (
-        <div className="absolute z-50 w-full max-w-11/12 left-4 md:left-6 mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-96 overflow-y-auto">
+        <div className="absolute z-50 w-full top-full left-0 mt-2 bg-white border border-gray-300 rounded-xl shadow-lg max-h-96 overflow-y-auto">
           {filteredProducts.map((product) => (
             <Link
               href={`/product/${valideURLConvert(product.name)}-${product._id}`}
@@ -206,8 +218,8 @@ const SearchBar = () => {
       )}
 
       {/* No results */}
-      {inputValue && filteredProducts.length === 0 && (
-        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-300 rounded-xl shadow-lg px-4 py-2 text-gray-500 text-sm text-center">
+      {inputValue && filteredProducts.length === 0 && !showRecentSearches && (
+        <div className="absolute z-50 w-full top-full left-0 mt-2 bg-white border border-gray-300 rounded-xl shadow-lg px-4 py-3 text-gray-500 text-sm text-center">
           No products found.
         </div>
       )}

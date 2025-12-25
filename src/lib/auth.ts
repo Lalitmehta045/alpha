@@ -10,7 +10,10 @@ import crypto from "crypto";
 export const authOptions: NextAuthOptions = {
   // Rely on env secret so callbacks/redirects use the correct host in prod
   secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: "jwt" },
+  session: { 
+    strategy: "jwt",
+    maxAge: 10 * 365 * 24 * 60 * 60, // 10 years
+  },
   providers: [
     Credentials({
       name: "Credentials",
@@ -93,6 +96,8 @@ export const authOptions: NextAuthOptions = {
         token.id = (user as any).id;
         token.role = (user as any).role;
       }
+      // Set token to expire in 10 years
+      token.exp = Math.floor(Date.now() / 1000) + (10 * 365 * 24 * 60 * 60);
       return token;
     },
 
