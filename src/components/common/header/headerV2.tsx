@@ -15,11 +15,18 @@ import { logout } from "@/services/operations/auth";
 import { BsCart2 } from "react-icons/bs";
 import ProfileSheet from "../profile/ProfileSheet";
 import { FaUserCircle } from "react-icons/fa";
+import { useSession, signOut } from "next-auth/react";
+import { setToken, setUser } from "@/redux/slices/authSlice";
 
 const HeaderV2 = () => {
   const router = useRouter();
   const dispatch = useDispatch();
-  const user = useSelector((state: RootState) => state.auth.user);
+  const reduxUser = useSelector((state: RootState) => state.auth.user);
+  const { data: session } = useSession();
+  
+  // Check both Redux user and NextAuth session
+  const user = reduxUser || session?.user;
+  
   const [isOpen, setIsOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
@@ -32,7 +39,20 @@ const HeaderV2 = () => {
 
   const handleLogout = async () => {
     try {
-      await logout(router, dispatch);
+      if (session?.user) {
+        // For Google Auth users: Clear NextAuth session + Redux + localStorage
+        await signOut({ callbackUrl: "/" });
+        
+        // Also clear Redux state and localStorage that were set during token generation
+        dispatch(setUser(null));
+        dispatch(setToken(null));
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+      } else {
+        // For regular users: Use existing logout function
+        await logout(router, dispatch);
+      }
     } catch (error) {
       console.error("Logout failed:", error);
     }
